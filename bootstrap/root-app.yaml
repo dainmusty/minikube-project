@@ -10,6 +10,8 @@ spec:
     repoURL: https://github.com/dainmusty/minikube-project.git
     targetRevision: main
     path: apps/dev
+    directory:
+      recurse: true   # 👈 This allows argo to look into subdirectories
 
   destination:
     server: https://kubernetes.default.svc
