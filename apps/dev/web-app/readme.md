@@ -7,6 +7,10 @@ kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.pas
 
 
 # To test the web-app
-Port forward using its container port number (3000)
-kubectl port-forward svc/argocd-server -n argocd 3000:80
-localhost:3000
+Port forward using its container port number (8081)
+kubectl port-forward svc/argocd-server -n argocd 8081:80
+
+
+# Minikube is not able to pull images from dockerhub thus you have to preload the image
+1. docker pull dainmusty/phone-store:latest
+2. minikube image load dainmusty/phone-store:latest
