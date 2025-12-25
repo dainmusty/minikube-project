@@ -15,9 +15,9 @@ spec:
     spec:
       containers:
         - name: web-app
-          image: mongo:8.0.16-nanoserver-ltsc2022
+          image: effulgencetech-nodejs-img:latest
           ports:
-            - containerPort: 27017
+            - containerPort: 3001
           envFrom:
             - configMapRef:
                 name: web-app-config
