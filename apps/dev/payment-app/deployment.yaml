@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mongodb-deployment
-  namespace: finapp
+  namespace: payment-app
   labels:
     app: mongo
     environment: dev

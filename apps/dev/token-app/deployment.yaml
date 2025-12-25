@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: web-app
-  namespace: web-app
+  name: token-app
+  namespace: token-app
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: web-app
+      app: token-app
   template:
     metadata:
       labels:
-        app: web-app
+        app: token-app
     spec:
       containers:
-        - name: web-app
-          image: nginx:trixie-perl
+        - name: token-app
+          image: effulgencetech-nodejs-img:tag
           ports:
-            - containerPort: 80
+            - containerPort: 8080
           envFrom:
             - configMapRef:
-                name: web-app-config
+                name: token-app-config
             - secretRef:
-                name: web-app-secrets
+                name: token-app-secrets
