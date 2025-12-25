@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: token-app
-          image: effulgencetech-nodejs-img:tag
+          image: dainmusty/effulgencetech-nodejs-img:tag
           ports:
             - containerPort: 8080
           envFrom:
