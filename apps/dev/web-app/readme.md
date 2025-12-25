@@ -19,3 +19,10 @@ Web App
 Token App
 1. docker pull dainmusty/effulgencetech-nodejs-img:tag          # listens on port 8080
 2. minikube image load dainmusty/effulgencetech-nodejs-img:tag
+3. kubectl port-forward svc/argocd-server -n argocd 8081:80
+
+
+# this installs nginx alb controller
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
+
+kubectl apply -f ingress.yaml

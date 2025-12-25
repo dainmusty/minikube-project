@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: token-app
+  namespace: token-app
+spec:
+  rules:
+    - host: token.apps.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: token-app
+                port:
+                  number: 80
