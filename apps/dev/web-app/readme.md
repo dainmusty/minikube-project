@@ -12,5 +12,10 @@ kubectl port-forward svc/argocd-server -n argocd 8081:80
 
 
 # Minikube is not able to pull images from dockerhub thus you have to preload the image
+Web App
 1. docker pull dainmusty/phone-store:latest
 2. minikube image load dainmusty/phone-store:latest
+
+Token App
+1. docker pull dainmusty/effulgencetech-nodejs-img:tag
+2. minikube image load dainmusty/effulgencetech-nodejs-img:tag

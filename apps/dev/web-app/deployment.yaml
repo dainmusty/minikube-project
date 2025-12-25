@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: web-app
-          image: dainmusty/phone-store:latest
+          image: dainmusty/effulgencetech-nodejs-img:tag
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
