@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: web-app
-          image: nanajanashia/argocd-app:1.0
+          image: nginx:trixie-perl
           ports:
             - containerPort: 3000
           envFrom:
