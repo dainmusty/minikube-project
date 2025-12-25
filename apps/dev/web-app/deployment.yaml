@@ -4,7 +4,7 @@ metadata:
   name: web-app
   namespace: web-app
 spec:
-  replicas: 2
+  replicas: 
   selector:
     matchLabels:
       app: web-app
@@ -15,6 +15,7 @@ spec:
     spec:
       containers:
         - name: web-app
-          image: nginx
+          image: dainmusty/phone-store:latest
           ports:
             - containerPort: 80
+
