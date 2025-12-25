@@ -8,5 +8,5 @@ spec:
     app: web-app
   ports:
     - port: 80
-      targetPort: 3001
+      targetPort: 80
   type: ClusterIP

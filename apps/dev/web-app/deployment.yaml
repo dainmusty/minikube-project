@@ -17,12 +17,4 @@ spec:
         - name: web-app
           image: nginx
           ports:
-            - containerPort: 3001
-          envFrom:
-            - configMapRef:
-                name: web-app-config
-            - secretRef:
-                name: web-app-secrets
-
-
-              
+            - containerPort: 80
