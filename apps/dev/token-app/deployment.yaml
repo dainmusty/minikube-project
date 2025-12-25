@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  namespace: web-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      containers:
+        - name: web-app
+          image: nginx:trixie-perl
+          ports:
+            - containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: web-app-config
+            - secretRef:
+                name: web-app-secrets
