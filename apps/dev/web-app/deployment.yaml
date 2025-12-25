@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: web-app
-          image: effulgencetech-nodejs-img:latest
+          image: nginx
           ports:
             - containerPort: 3001
           envFrom:
@@ -24,3 +24,5 @@ spec:
             - secretRef:
                 name: web-app-secrets
 
+
+              
