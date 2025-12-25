@@ -9,7 +9,7 @@ spec:
   source:
     repoURL: https://github.com/dainmusty/minikube-project.git
     targetRevision: main
-    path: minikube-project/apps/dev/token-app
+    path: apps/dev/token-app
 
   destination:
     server: https://kubernetes.default.svc

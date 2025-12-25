@@ -9,11 +9,11 @@ spec:
   source:
     repoURL: https://github.com/dainmusty/minikube-project.git
     targetRevision: main
-    path: minikube-project/apps/dev/payment-app
+    path: apps/dev/payment-app
 
   destination:
     server: https://kubernetes.default.svc
-    namespace: finapp
+    namespace: payment-app
 
   syncPolicy:
     automated:
