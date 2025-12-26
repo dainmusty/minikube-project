@@ -4,6 +4,7 @@ metadata:
   name: web-app
   namespace: web-app
 spec:
+  ingressClassName: nginx
   rules:
     - host: web.apps.local
       http:
