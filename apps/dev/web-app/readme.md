@@ -30,3 +30,7 @@ kubectl apply -f ingress.yaml
 http://web.apps.local
 http://token.apps.local
 http://payment.apps.local
+
+
+kubectl exec -it -n token-app <pod> -- sh
+wget -O- http://localhost:8080
