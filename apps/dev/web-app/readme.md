@@ -26,3 +26,7 @@ Token App
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
 
 kubectl apply -f ingress.yaml
+
+http://web.apps.local
+http://token.apps.local
+http://payment.apps.local
