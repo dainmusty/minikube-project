@@ -4,6 +4,7 @@ metadata:
   name: token-app
   namespace: token-app
 spec:
+  ingressClassName: nginx
   rules:
     - host: token.apps.local
       http:
