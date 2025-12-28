@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: webapp-deployment
+  name: payment-app
   labels:
-    app: webapp
+    app: payment-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: webapp
+      app: payment-app
   template:
     metadata:
       labels:
-        app: webapp
+        app: payment-app
     spec:
       containers:
-      - name: webapp
+      - name: payment-app
         image: nanajanashia/k8s-demo-app:v1.0
         ports:
         - containerPort: 3000
@@ -39,11 +39,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: webapp-service
+  name: payment-app-service
 spec:
   type: NodePort
   selector:
-    app: webapp
+    app: payment-app
   ports:
     - protocol: TCP
       port: 3000

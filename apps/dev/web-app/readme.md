@@ -23,7 +23,7 @@ Token App
 
 
 Payment App
-1. docker pull mongo:6          # listens on port 27017
+1. docker pull mongo:5.0          # listens on port 27017
 2. Loads into the image to docker desktop
 3. kubectl port-forward svc/argocd-server -n argocd 8081:80
 
