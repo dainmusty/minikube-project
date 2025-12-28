@@ -432,16 +432,247 @@ Your paths are correct ✅
 
 directory:
   recurse: true
+❌ The problem (precise)
+
+Your container listens on 8080, but your Service forwards to 80.
+
+Deployment (correct)
+containers:
+  - name: token-app
+    ports:
+      - containerPort: 8080   # ✅ app listens here
+
+Service (wrong)
+ports:
+  - port: 80
+    targetPort: 80            # ❌ nothing listens on 80 in the pod
 
 
-Once that’s in place, your App-of-Apps will behave exactly as designed.
+So traffic flow is currently:
 
-If you want next:
+Ingress → Service:80 → Pod:80 ❌ (connection refused)
 
-Convert this to ApplicationSet (no recurse needed)
 
-Add env folders (dev / staging / prod)
+That’s why:
 
-Add CI validation to catch this automatically
+wget http://localhost:8080 works inside the pod
 
-Just say the word 👍
+http://token.apps.local returns 404 / 502
+
+✅ The fix (only ONE line change)
+✅ Correct Service manifest
+apiVersion: v1
+kind: Service
+metadata:
+  name: token-app
+  namespace: token-app
+spec:
+  selector:
+    app: token-app
+  ports:
+    - port: 80          # ingress talks to this
+      targetPort: 8080  # forward to container port
+  type: ClusterIP
+
+
+✔ Ingress stays the same
+✔ Deployment stays the same
+
+🔁 What to do now
+
+Update the Service manifest in Git
+
+Commit & push
+
+Let ArgoCD sync (or sync manually)
+
+✅ Expected final traffic flow (correct)
+Browser
+ → http://token.apps.local
+ → Ingress (80)
+ → Service token-app (80)
+ → Pod token-app (8080)
+ → Node app responds ✅
+
+🧠 Key rule to remember (this is important)
+
+Ingress port = Service port
+Service targetPort = Container port
+
+They do not have to be the same — and usually aren’t.
+
+🔍 Quick verification after sync
+kubectl get endpoints token-app -n token-app
+
+
+You should see:
+
+IP:8080
+
+
+Then open in browser:
+
+http://token.apps.local
+
+
+You are very close — this is the final wiring fix.
+Once this works, all three apps (web, token, payment) will be cleanly normalized and production-aligned.
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    argocd.argoproj.io/tracking-id: token-app:networking.k8s.io/Ingress:token-app/token-app
+    kubectl.kubernetes.io/last-applied-configuration: >
+      {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"token-app:networking.k8s.io/Ingress:token-app/token-app"},"name":"token-app","namespace":"token-app"},"spec":{"rules":[{"host":"token.apps.local","http":{"paths":[{"backend":{"service":{"name":"token-app","port":{"number":80}}},"path":"/","pathType":"Prefix"}]}}]}}
+  creationTimestamp: '2025-12-25T22:47:08Z'
+  generation: 1
+  name: token-app
+  namespace: token-app
+  resourceVersion: '133531'
+  uid: 597e7c0b-318b-4b44-960c-a4f063208e06
+spec:
+  rules:
+    - host: token.apps.local
+      http:
+        paths:
+          - backend:
+              service:
+                name: token-app
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix
+status:
+  loadBalancer: {}
+
+kubectl get endpoints token-app -n token-app
+NAME        ENDPOINTS                             AGE
+token-app   10.244.0.219:8080,10.244.0.220:8080   31h 
+
+Excellent — this output is actually very good news.
+It tells us exactly where we are and what the last missing piece is.
+
+✅ What is now 100% correct
+1️⃣ Service → Pod wiring ✅
+
+Your endpoints prove it:
+
+kubectl get endpoints token-app -n token-app
+
+10.244.0.219:8080
+10.244.0.220:8080
+
+
+This confirms:
+
+✔ Pods are running
+✔ App listens on 8080
+✔ Service correctly forwards 80 → 8080
+
+So Service + Deployment are PERFECT now.
+
+🔴 What is still missing (Ingress-specific)
+
+Your Ingress does not specify which controller should handle it.
+
+On Minikube, this is critical.
+
+Right now, your Ingress has:
+
+spec:
+  rules:
+    - host: token.apps.local
+
+
+But no ingress class.
+
+✅ REQUIRED FIX: Add ingressClassName
+
+Your ingress controller is ingress-nginx, so you must explicitly bind to it.
+
+✅ Correct Ingress (final)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: token-app
+  namespace: token-app
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: token.apps.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: token-app
+                port:
+                  number: 80
+
+
+⚠️ Do not use annotations anymore — ingressClassName is the modern, correct way.
+
+🔁 What to do now
+
+Update this ingress in Git
+
+Commit & push
+
+Let ArgoCD sync (or sync manually)
+
+🧪 Verification steps (in order)
+1️⃣ Confirm ingress picked up
+kubectl get ingress token-app -n token-app
+
+
+You should now see:
+
+CLASS    nginx
+
+2️⃣ Check ingress controller logs (optional)
+kubectl logs -n ingress-nginx deployment/ingress-nginx-controller | grep token
+
+3️⃣ Open in browser
+http://token.apps.local
+
+
+✅ You should now see the same HTML you saw via wget localhost:8080.
+
+🧠 Why web-app worked earlier without this
+
+Most likely:
+
+web-app ingress already had ingressClassName: nginx
+
+or it was created when nginx was the default class
+
+Kubernetes no longer assumes defaults reliably — explicit is required.
+
+🏁 Final architecture (now complete)
+
+You now have:
+
+✔ App-of-Apps (ArgoCD)
+✔ Per-app namespaces
+✔ Normalized ingress (port 80 everywhere)
+✔ Proper Service → Pod mapping
+✔ Real production-grade routing
+
+This setup will translate 1:1 to:
+
+EKS + ALB
+
+GKE
+
+AKS
+you can now
+
+Add health/readiness probes
+
+Add TLS (HTTPS locally)
+
+Add NetworkPolicies
+
+Move this exact layout to EKS

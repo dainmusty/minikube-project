@@ -4,5 +4,5 @@ metadata:
   name: payment-app-config
   namespace: payment-app
 data:
+  MONGO_DB_NAME: payments
   APP_ENV: dev
-  LOG_LEVEL: debug
