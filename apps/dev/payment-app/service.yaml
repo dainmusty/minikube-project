@@ -1,17 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: payment-service
+  name: mongo
   namespace: payment-app
-  labels:
-    app: mongo
-    environment: dev
-    managed-by: argocd
 spec:
   selector:
     app: mongo
   ports:
-    - protocol: TCP
-      port: 27017
+    - port: 27017
       targetPort: 27017
   type: ClusterIP
