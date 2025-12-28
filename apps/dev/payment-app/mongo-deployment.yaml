@@ -1,21 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: payment-app
-  labels:
-    app: payment-app
+  name: payment-mongo
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: payment-app
+      app: payment-mongo
   template:
     metadata:
       labels:
-        app: payment-app
+        app: payment-mongo
     spec:
       containers:
-      - name: mongodb
+      - name: mongo
         image: mongo:5.0
         ports:
         - containerPort: 27017
@@ -29,16 +27,4 @@ spec:
           valueFrom:
             secretKeyRef:
               name: mongo-secret
-              key: mongo-password  
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: payment-app-service
-spec:
-  selector:
-    app: payment-app
-  ports:
-    - protocol: TCP
-      port: 27017
-      targetPort: 27017
+              key: mongo-password

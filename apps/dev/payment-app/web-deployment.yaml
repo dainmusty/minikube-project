@@ -1,21 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: payment-app
-  labels:
-    app: payment-app
+  name: payment-web
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: payment-app
+      app: payment-web
   template:
     metadata:
       labels:
-        app: payment-app
+        app: payment-web
     spec:
       containers:
-      - name: payment-app
+      - name: payment-web
         image: nanajanashia/k8s-demo-app:v1.0
         ports:
         - containerPort: 3000
@@ -29,23 +27,9 @@ spec:
           valueFrom:
             secretKeyRef:
               name: mongo-secret
-              key: mongo-password 
+              key: mongo-password
         - name: DB_URL
           valueFrom:
             configMapKeyRef:
               name: mongo-config
-              key: mongo-url
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: payment-app-service
-spec:
-  type: NodePort
-  selector:
-    app: payment-app
-  ports:
-    - protocol: TCP
-      port: 3000
-      targetPort: 3000
-      nodePort: 30100
+              key: DB_URL
