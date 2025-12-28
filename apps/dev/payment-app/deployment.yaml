@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: mongo
-          image: mongo-express:1.0.2-20-alpine3.19
+          image: mongo:6
           ports:
             - containerPort: 27017
           env:

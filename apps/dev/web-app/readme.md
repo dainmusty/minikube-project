@@ -23,8 +23,8 @@ Token App
 
 
 Payment App
-1. docker pull mongo-express:1.0.2-20-alpine3.19          # listens on port 27017
-2. minikube image load mongo-express:1.0.2-20-alpine3.19
+1. docker pull mongo:6          # listens on port 27017
+2. Loads into the image to docker desktop
 3. kubectl port-forward svc/argocd-server -n argocd 8081:80
 
 
