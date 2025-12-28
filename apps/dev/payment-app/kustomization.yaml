@@ -4,7 +4,7 @@ kind: Kustomization
 resources:
   - mongo-deployment.yaml
   - mongo-service.yaml
-  - payment-web-deployment.yaml
-  - payment-web-service.yaml
+  - web-deployment.yaml
+  - web-service.yaml
   - configmap.yaml
   - secret.yaml
