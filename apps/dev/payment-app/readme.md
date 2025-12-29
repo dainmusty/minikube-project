@@ -204,3 +204,18 @@ mongodb://admin:password@payment-service.payment-app.svc.cluster.local:27017/pay
 2️⃣ Add NetworkPolicies (zero-trust)
 3️⃣ Add MongoDB exporter → Prometheus
 4️⃣ Move Mongo to StatefulSet
+
+# kustomization.yaml
+# apiVersion: kustomize.config.k8s.io/v1beta1
+# kind: Kustomization
+
+# namespace: payment-app
+
+# resources:
+#   - mongo-deployment.yaml
+#   - mongo-service.yaml
+#   - web-deployment.yaml
+#   - web-service.yaml
+#   - web-ingress.yaml
+#   - configmap.yaml
+#   - secret.yaml
