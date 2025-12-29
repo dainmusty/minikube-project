@@ -33,4 +33,4 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: mongo-config
-              key: DB_URL
+              key: mongo-url
