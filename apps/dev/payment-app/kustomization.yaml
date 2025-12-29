@@ -4,10 +4,10 @@ kind: Kustomization
 namespace: payment-app
 
 resources:
-  - mongo/deployment.yaml
-  - mongo/service.yaml
-  - web/deployment.yaml
-  - web/service.yaml
-  - web/ingress.yaml
-  - shared/configmap.yaml
-  - shared/secret.yaml
+  - mongo-deployment.yaml
+  - mongo-service.yaml
+  - web-deployment.yaml
+  - web-service.yaml
+  - web-ingress.yaml
+  - configmap.yaml
+  - secret.yaml
