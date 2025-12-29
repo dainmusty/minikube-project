@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: payment-web
+  name: payment-app
   namespace: payment-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: payment-web
+      app: payment-app
   template:
     metadata:
       labels:
-        app: payment-web
+        app: payment-app
     spec:
       containers:
-      - name: payment-web
+      - name: payment-app
         image: nanajanashia/k8s-demo-app:v1.0
         ports:
         - containerPort: 3000
