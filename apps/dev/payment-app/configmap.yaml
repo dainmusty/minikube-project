@@ -4,4 +4,4 @@ metadata:
   name: mongo-config
   namespace: payment-app
 data:
-  DB_URL: mongodb://payment-mongo:27017
+  DB_URL: mongodb://$(USER_NAME):$(USER_PWD)@payment-mongo:27017/payment-db
