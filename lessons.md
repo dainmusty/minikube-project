@@ -1,4 +1,4 @@
-Lessons Learned – Minikube + ArgoCD + Ingress + MongoDB
+# Lessons Learned – Minikube + ArgoCD + Ingress + MongoDB
 
 This project surfaced several classic but important Kubernetes and GitOps lessons. Nothing was fundamentally broken — the issues were about wiring, discovery, and configuration boundaries.
 
