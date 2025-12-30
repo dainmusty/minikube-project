@@ -1,17 +1,61 @@
-# To install argocd on a minikube
+
+# Minikube-Argocd Project (App of Apps)
+Project Overview
+GitOps-Driven Microservices Deployment on Kubernetes (EKS / Minikube)
+A production-style Kubernetes microservices project using GitOps with Argo CD.
+Demonstrates secure service-to-service communication, ingress management, and MongoDB integration.
+Focused on real-world debugging, Kustomize overlays, and operational best practices.
+
+Steps
+1. Deploy minikube or Docker Desktop Cluster
+a. Run choco install minikube or 
+b. Go to kubernetes on docker desktop and select kind cluster type
+
+2.  Install argocd 
 kubectl create namespace argocd
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 kubectl get pods -n argocd
 kubectl port-forward svc/argocd-server -n argocd 8080:80
 kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" | base64 --decode
-qRouIH5ZYHyvgTwR
 
-# To test the web-app
-Port forward using its container port number (8081)
-kubectl port-forward svc/argocd-server -n argocd 8081:80
+3. Install nginx alb controller
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
+
+4. Prepare your manifest files using the structure below
+repo-root/
+├── k8s/
+│   ├── bootstrap/
+│   │   └── root-app-dev.yaml      # App of Apps 
+│   └── apps/
+│       └── dev/
+│           ├── web-app/
+│           │   ├── deployment.yaml
+│           │   ├── service.yaml
+│           │   ├── ingress.yaml
+│           │   
+│           ├── token-app/
+│           │   ├── deployment.yaml
+│           │   ├── service.yaml
+│           │   ├── ingress.yaml
+│           │   
+│           └── payment-app/
+│               ├── mongo-deployment.yaml
+│               ├── mongo-service.yaml
+│               ├── web-deployment.yaml
+│               ├── web-service.yaml
+│               ├── configmap.yaml
+│               ├── secret.yaml
+│               └── web-ingress.yaml
+
+| Component         | Exposure       |
+| ----------------- | -------------- |
+| Web App           | Ingress        |
+| Token App         | Ingress        |
+| Payment (MongoDB) | ClusterIP only |
+| Debugging         | Port-forward   |
 
 
-# Minikube is not able to pull images from dockerhub thus you have to preload the image
+# Minikube is not able to pull images from dockerhub thus you have to preload your images
 Web App
 1. docker pull dainmusty/phone-store:latest     # listens on port 80
 2. minikube image load dainmusty/phone-store:latest
@@ -19,36 +63,221 @@ Web App
 Token App
 1. docker pull dainmusty/effulgencetech-nodejs-img:tag          # listens on port 8080
 2. minikube image load dainmusty/effulgencetech-nodejs-img:tag
-3. kubectl port-forward svc/argocd-server -n argocd 8081:80
+
+Payment App (web and database)
+1. docker pull mongo:5.0          
+2. minikube image load mongo:5.0
+
+3. docker pull nanajanashia/k8s-demo-app:v1.0
+4. minikube image load nanajanashia/k8s-demo-app:v1.0
+
+# Test the applications via GUI
+
+1. Option 1 - Port Forwarding
+Port forward using its container port number (8081)
+kubectl port-forward svc/web-app -n web-app 8081:80
+
+2. Option 2 - Single Ingress, multiple paths (recommended)
+Step 1: Normalize container ports (Deployment)
+Each child app Deployment should expose 8080 only.
+
+Example: web-app Deployment
+containers:
+  - name: web-app
+    image: dainmusty/effulgencetech-nodejs-img:tag
+    ports:
+      - containerPort: 8080
 
 
-Payment App
-1. docker pull mongo:5.0          # listens on port 27017
-2. Loads into the image to docker desktop
-3. kubectl port-forward svc/argocd-server -n argocd 8081:80
+Repeat for:
+
+web-app
+
+token-app
+
+payment-app
+
+✅ No 3000, no 5000, no custom ports per app
+
+Step 2: Normalize Services
+
+Each Service exposes port 80, forwards to 8080.
+
+Example: web-app Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app
+  namespace: web-app
+spec:
+  type: ClusterIP
+  selector:
+    app: web-app
+  ports:
+    - port: 80
+      targetPort: 8080
 
 
-# this installs nginx alb controller
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
+Repeat for:
 
-kubectl apply -f ingress.yaml
+token-app
 
+payment-app
+
+👉 Internally, Kubernetes always talks to port 80, containers always listen on 8080
+
+Step 3: Add Ingress (Minikube nginx)
+
+Enable nginx if you haven’t:
+
+minikube addons enable ingress
+
+What “normalize all apps” means (in your setup)
+
+Normalization = making all your applications look the same from Kubernetes’ point of view.
+
+Specifically:
+
+Every app listens on the same container port (e.g. 8080)
+Kubernetes Services & Ingress don’t need to care about app-specific ports anymore.
+
+Why this matters
+
+Ingress rules become clean and consistent
+
+Helm / manifests are reusable
+
+ArgoCD health checks behave predictably
+
+You avoid port-mismatch bugs like the one you just debugged
+
+1. Open Notepad as Administrator
+
+This part is mandatory.
+
+Click Start
+
+Type Notepad
+
+Right-click → Run as administrator
+
+2️⃣ Open the hosts file
+
+In Notepad:
+
+File → Open
+
+Go to:
+
+C:\Windows\System32\drivers\etc
+
+
+Change file type from Text Documents (*.txt) → All Files
+
+Open hosts
+
+3️⃣ Add this line at the VERY BOTTOM
+127.0.0.1   apps.local
+
+
+⚠️ Make sure:
+
+There is at least one space or tab
+
+No # in front
+
+No .txt extension
+
+4️⃣ Save (Ctrl + S)
+
+If it doesn’t ask for permission, you didn’t open Notepad as admin → repeat step 1.
+
+5️⃣ Flush DNS cache (important)
+
+Open Command Prompt as Administrator and run:
+
+ipconfig /flushdns
+
+
+You should see:
+
+Successfully flushed the DNS Resolver Cache.
+
+✅ Verify (this MUST work)
+ping apps.local
+
+
+Expected:
+
+Pinging apps.local [127.0.0.1] with 32 bytes of data
+Windows ignores hosts changes unless:
+
+File saved with admin rights
+
+DNS cache flushed
+
+Git Bash / WSL does not edit Windows DNS
+
+✅ After ping works
+
+Then your Minikube ingress URLs will work:
 http://web.apps.local
 http://token.apps.local
 http://payment.apps.local
+Next logical steps (your setup is ready)
+
+Once DNS works, we can:
+
+Add path-based Ingress YAML
+
+Add health checks in ArgoCD
+
+Prepare same layout for EKS + ALB
+
+Do not move forward until ping apps.local works
+
+Normalized standard (this is gold):
+This confirms:
+✔ Pods are running
+✔ App listens on 8080
+✔ Service correctly forwards 80 → 8080
+Browser
+ → http://token.apps.local
+ → Ingress (80)
+ → Service token-app (80)
+ → Pod token-app (8080)
+ → Node app responds ✅
+Final “Normalize all apps” rule (the right way)
+
+Normalization means:
+
+All apps are accessed via port 80 externally,
+but internally they can listen on any port they want.
+
+External (Ingress)
+web.apps.local    → 80
+token.apps.local  → 80
+payment.apps.local→ 80
+
+Internal (Service → Pod)
+nginx    → 80
+node     → 8080
+python   → 5000
+
+Ingress never changes — Services adapt.
+| App         | Container Port | Service Target | Ingress |
+| ----------- | -------------- | -------------- | ------- |
+| web-app     | 80             | 80             | 80      |
+| token-app   | 8080           | 8080           | 80      |
+| payment-app | 3000           | 3000           | 80      |
 
 
+# To log into a pod and check app status and listening port
 kubectl exec -it -n token-app <pod> -- sh
 wget -O- http://localhost:8080
 
 
-# to add https
-Perfect choice 👍
-Let’s add HTTPS (TLS) locally with Minikube + nginx ingress, the production-correct way, without hacks.
-
-We’ll do this in 4 clean steps.
-
-🧩 Goal (what we’re building)
+# Add HTTPS (TLS) locally with Minikube + nginx ingress, the production-correct way, without hacks.
 
 You’ll end up with:
 
@@ -166,7 +395,6 @@ https://web.apps.local
 ✅ Real TLS
 
 🧠 Key production lessons you just implemented
-Topic	You did it right
 Local CA	mkcert
 TLS secrets	Kubernetes-native
 Ingress TLS	spec.tls
@@ -183,14 +411,7 @@ AKS App Gateway
 
 Only the cert source changes.
 
-
-Excellent choice. NetworkPolicies are where Kubernetes becomes “real security” 🔐
-We’ll implement zero-trust networking step by step, without breaking your apps.
-
-I’ll explain what, why, then give you exact manifests you can drop into Git and let ArgoCD apply.
-
-🧠 Zero-Trust Model (what we’re enforcing)
-
+# NetworkPolicies are where Kubernetes becomes “real security” 🔐
 Default Kubernetes behavior (bad):
 
 Every pod can talk to every pod in every namespace
@@ -198,8 +419,6 @@ Every pod can talk to every pod in every namespace
 Zero-trust model (good):
 
 Nothing talks to anything unless explicitly allowed
-
-We’ll implement:
 
 Default deny per namespace
 
@@ -346,9 +565,6 @@ payment-app	8080
 🔍 Test 1 — ingress still works
 https://token.apps.local
 
-
-✅ Should load
-
 🔍 Test 2 — block lateral traffic
 kubectl exec -it -n web-app <pod> -- wget -O- http://token-app.token-app.svc.cluster.local
 
@@ -382,8 +598,6 @@ ArgoCD will apply them automatically.
 
 🔐 What security you just implemented (real-world)
 
-You now have:
-
 ✔ Namespace isolation
 ✔ Ingress-only exposure
 ✔ No lateral movement
@@ -391,3 +605,7 @@ You now have:
 ✔ Cloud-grade zero-trust
 
 This is exactly what security teams demand in production EKS clusters.
+
+# Persistence (PVC)
+
+Ensure data survives pod restart
