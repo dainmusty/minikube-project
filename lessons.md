@@ -1,275 +1,207 @@
-Payment App on Kubernetes – Lessons Learned
+Lessons Learned – Minikube + ArgoCD + Ingress + MongoDB
 
-This document captures the key lessons learned while deploying and debugging a multi-service payment application on Kubernetes using Deployments, Services, Ingress, ConfigMaps, Secrets, and ArgoCD.
+This project surfaced several classic but important Kubernetes and GitOps lessons. Nothing was fundamentally broken — the issues were about wiring, discovery, and configuration boundaries.
 
-1. Ingress 503 / 502 Errors Are Usually Backend Issues
-Symptoms
+1. ArgoCD App-of-Apps: How It Really Works
+Key Insight
 
-Browser shows:
+ArgoCD does not deploy folders — it deploys Application CRDs only.
 
-503 Service Temporarily Unavailable
-nginx
+Lessons
+
+The root App-of-Apps only scans for kind: Application
+
+Deployments, Services, Secrets, etc. are ignored unless wrapped by an Application
+
+A “Healthy & Synced” root app does not mean child apps exist
+
+Required Structure
+apps/dev/
+├── web-app/
+│   └── application.yaml
+├── payment-app/
+│   └── application.yaml
+└── token/
+    └── application.yaml
 
 
-Or:
+Each service must have its own application.yaml.
+
+2. App-of-Apps Discovery Requires Directory Recursion
+Root Cause
+
+ArgoCD defaults to:
+
+directory.recurse = false
+
+What That Means
+
+ArgoCD only checks the top-level folder
+
+It will not descend into subfolders
+
+Child apps are silently skipped (no errors)
+
+Fix (Mandatory)
+source:
+  path: apps/dev
+  directory:
+    recurse: true
+
+Lesson
+
+If child apps live in subfolders, directory recursion must be enabled.
+
+3. Service → Pod Port Mapping Is Critical
+Common Failure Pattern
+
+App listens on 8080
+
+Service forwards to 80
+
+Result: 502 / 503 / connection refused
+
+Correct Rule
+Ingress port     → Service port
+Service targetPort → Container port
+
+Correct Example
+ports:
+  - port: 80
+    targetPort: 8080
+
+Lesson
+
+Services don’t guess ports — you must wire them explicitly.
+
+4. Ingress Requires Explicit ingressClassName
+Root Cause
+
+Ingress existed but was not claimed by any controller
+
+Why
+
+Kubernetes no longer assumes a default ingress controller
+
+Minikube + ingress-nginx requires explicit binding
+
+Fix
+spec:
+  ingressClassName: nginx
+
+Lesson
+
+If an Ingress has no class, no controller will serve it.
+
+5. MongoDB Authentication Belongs in Secrets, Not ConfigMaps
+What Went Wrong
+
+App tried to resolve mongodb
+
+DNS resolution failed
+
+Mongo client timed out and crashed the pod
+
+Proper Pattern
+
+ConfigMap → connection structure
+
+Secret → credentials
+
+# ConfigMap
+DB_URL=mongodb://user:password@payment-mongo:27017/db
+
+# Secret
+MONGO_USER
+MONGO_PASSWORD
+
+Lesson
+
+ConfigMaps = structure
+Secrets = identity & credentials
+
+6. Crash Loops Often Start After the App Starts
+Important Observation
+
+App logged: listening on port 3000
+
+Then crashed later due to DB failure
+
+Lesson
+
+A pod starting successfully does not mean it is healthy.
+
+This is why:
+
+Readiness probes matter
+
+External dependencies must be validated early
+
+7. Ingress Errors Are Usually Downstream, Not Ingress Bugs
+Observed Errors
 
 502 Bad Gateway
 
+503 Service Temporarily Unavailable
 
-Ingress appears healthy:
+Actual Causes
 
-kubectl get ingress
+Service targetPort mismatch
 
-Root Cause
+Missing ingressClassName
 
-NGINX Ingress was working correctly, but had no healthy backend to route traffic to.
+Backend pod crashing
 
-Key Lesson
+Lesson
 
-A 503 or 502 from NGINX almost always means:
+Ingress errors usually mean backend wiring is wrong, not that NGINX is broken.
 
-No endpoints
+8. ArgoCD Being “Healthy” Can Be Misleading
+Why This Happens
 
-Pod crashing
+ArgoCD reports health of what it sees
 
-Application error (not an Ingress issue)
+If it sees nothing, it still reports success
 
-2. Service Selectors Must Match Pod Labels Exactly
-Problem
+Lesson
 
-The Service existed, but:
+Always validate with:
 
-kubectl get endpoints payment-app
-# <none>
+kubectl get applications -n argocd
 
-Root Cause
 
-Service selector:
+Not just the UI status.
 
-selector:
-  app: payment-app
+9. Minikube Behaves Like Production (If You Treat It Right)
+What This Setup Achieved
 
+Namespace isolation
 
-Pod label:
+Ingress-based routing
 
-labels:
-  app: payment-web   # mismatch
+GitOps reconciliation
 
-Fix
+App-of-Apps orchestration
 
-Ensure Deployment labels = Service selectors:
+Lesson
 
-labels:
-  app: payment-app
+Minikube is not “toy Kubernetes” — misconfigurations fail exactly like EKS.
 
-Key Lesson
+10. Final Mental Model (Interview-Ready)
 
-If endpoints are empty, Ingress will fail, even if Pods are running.
+The issues were not code bugs.
+They were configuration discovery boundaries:
 
-3. Ingress Must Point to the Correct Service Name
-Problem
+ArgoCD didn’t recurse
 
-Ingress backend:
+Services didn’t map ports
 
-service:
-  name: payment-app
+Ingress wasn’t claimed
 
+Secrets weren’t injected
 
-But actual Service:
+Once the control plane wiring matched the runtime behavior, the system stabilized immediately.
 
-payment-web
+One-Sentence Summary
 
-Result
-
-Ingress showed:
-
-payment-app:80 ()
-
-Fix
-
-Rename Service or update Ingress backend to match.
-
-Key Lesson
-
-Ingress → Service name must match exactly, or NGINX has no upstream.
-
-4. Internal Ports vs External Ports Matter
-Correct Pattern
-
-App listens on 3000
-
-Service exposes 80
-
-Ingress routes 80
-
-ports:
-  - port: 80
-    targetPort: 3000
-
-Key Lesson
-
-Ingress talks to Service ports, not container ports.
-
-5. Blank UI ≠ Ingress Problem
-Symptom
-
-App loads
-
-Page is completely white
-
-No visible error
-
-Root Cause
-
-Frontend JavaScript depended on:
-
-fetch("/get-profile")
-
-
-That API failed because MongoDB connection was broken.
-
-Key Lesson
-
-A blank UI usually means:
-
-Backend API failed
-
-JS error in browser console
-
-Database connection issue
-
-Always check:
-
-Browser console
-
-Pod logs
-
-6. MongoDB Connection Failed Due to Wrong Hostname
-Error
-MongoTimeoutError: getaddrinfo EAI_AGAIN mongodb
-
-Root Cause
-
-App tried to connect to:
-
-mongodb
-
-
-But Kubernetes Service name was:
-
-payment-mongo
-
-Fix
-
-Use the Service name as the hostname:
-
-mongodb://payment-mongo:27017
-
-Key Lesson
-
-In Kubernetes, Service name = DNS hostname
-
-7. Secrets and ConfigMaps Must Be Wired Correctly
-Correct Pattern
-ConfigMap (non-sensitive)
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: mongo-config
-data:
-  DB_URL: mongodb://payment-mongo:27017
-
-Secret (sensitive)
-apiVersion: v1
-kind: Secret
-metadata:
-  name: mongo-secret
-type: Opaque
-data:
-  mongo-user: <base64>
-  mongo-password: <base64>
-
-Deployment
-env:
-  - name: USER_NAME
-    valueFrom:
-      secretKeyRef:
-        name: mongo-secret
-        key: mongo-user
-  - name: USER_PWD
-    valueFrom:
-      secretKeyRef:
-        name: mongo-secret
-        key: mongo-password
-  - name: DB_URL
-    valueFrom:
-      configMapKeyRef:
-        name: mongo-config
-        key: DB_URL
-
-Key Lesson
-
-If Secrets or ConfigMaps are not correctly referenced, the app will fail silently.
-
-8. How to Debug Kubernetes Apps Systematically
-Golden Debug Order
-
-kubectl get pods
-
-kubectl logs <pod>
-
-kubectl get svc
-
-kubectl get endpoints
-
-kubectl describe ingress
-
-Test inside pod:
-
-wget http://localhost:3000
-
-Key Lesson
-
-Kubernetes almost always tells you the answer — you just have to ask the right object.
-
-9. ArgoCD Was Not the Problem 😄
-
-ArgoCD correctly reported:
-
-Missing resources
-
-Failed syncs
-
-Invalid Ingress definitions
-
-Key Lesson
-
-ArgoCD is a truth mirror, not the cause of the problem.
-
-Final Outcome ✅
-
-Ingress routing works
-
-Backend API works
-
-MongoDB connection works
-
-Frontend renders correctly
-
-App accessible via:
-
-http://payment.apps.local
-
-Final Takeaway
-
-Kubernetes issues are rarely Kubernetes issues.
-
-They are usually:
-
-Label mismatches
-
-Wrong service names
-
-Broken environment variables
-
-Application configuration problems
+Every failure came from Kubernetes doing exactly what it was told — just not what was assumed.

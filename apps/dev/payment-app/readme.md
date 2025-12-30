@@ -1,44 +1,63 @@
-# To install argocd on a minikube
-kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-kubectl get pods -n argocd
-kubectl port-forward svc/argocd-server -n argocd 8080:80
-kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" | base64 --decode
+Payment Application on Kubernetes (EKS / Minikube)
 
+This repository demonstrates a production-grade microservice deployment on Kubernetes using MongoDB with authentication, Ingress with TLS, and GitOps via ArgoCD App-of-Apps.
 
-Absolutely 👍
-You’re on the right track already. We just need to cleanly convert the payment app into a MongoDB database service, fix a few mismatches, and make it internally accessible for testing.
+It also documents a real-world debugging incident and the lessons learned from resolving it.
 
-We will keep this simple:
+1️⃣ Architecture Overview
+High-Level Architecture
+                    ┌───────────────┐
+                    │    Browser    │
+                    └───────┬───────┘
+                            │ HTTPS (TLS)
+                            ▼
+                  ┌──────────────────────┐
+                  │   Ingress Controller │
+                  │ (NGINX / ALB)         │
+                  └─────────┬────────────┘
+                            │
+                            ▼
+              ┌────────────────────────────┐
+              │ payment-app Service         │
+              │ (ClusterIP :80)             │
+              └─────────┬──────────────────┘
+                        │
+                        ▼
+              ┌────────────────────────────┐
+              │ payment-app Pod             │
+              │ (Node.js / Spring / etc.)   │
+              └─────────┬──────────────────┘
+                        │ MongoDB Auth
+                        ▼
+              ┌────────────────────────────┐
+              │ MongoDB Service             │
+              │ (ClusterIP :27017)          │
+              └─────────┬──────────────────┘
+                        ▼
+              ┌────────────────────────────┐
+              │ MongoDB Pod                 │
+              │ Auth enabled                │
+              │ Persistent Volume           │
+              └────────────────────────────┘
 
-❌ No NetworkPolicies
+2️⃣ Kubernetes Resource Breakdown
+Namespaces
 
-❌ No HTTPS
+payment-app – Application + database
 
-✅ Internal MongoDB via ClusterIP
+argocd – GitOps controller
 
-✅ Credentials via Secret
+cert-manager – TLS automation
 
-✅ Config via ConfigMap
+3️⃣ MongoDB: Production-Grade Authentication
+❌ What NOT to Do
 
-⚠️ Ingress is NOT needed for MongoDB (important)
+Hardcode DB credentials in Deployment YAML
 
-🔴 Important correction (very important)
+Use unauthenticated MongoDB in production
 
-MongoDB should NOT be exposed via Ingress
-
-Ingress is HTTP/HTTPS only, while MongoDB is TCP (27017).
-So we will remove the Ingress completely.
-
-Your apps will connect using:
-
-mongodb://<user>:<password>@payment-service.payment-app.svc.cluster.local:27017
-
-✅ Final Clean Setup (MongoDB in payment-app namespace)
-1️⃣ Secret (MongoDB credentials)
-
-Put this in payment-app namespace (not web-app)
-
+✅ Correct Setup
+MongoDB Credentials → Kubernetes Secret
 apiVersion: v1
 kind: Secret
 metadata:
@@ -46,176 +65,241 @@ metadata:
   namespace: payment-app
 type: Opaque
 data:
-  mongo-usr: YWRtaW4=        # admin
-  mongo-pwd: cGFzc3dvcmQ=    # password
+  MONGO_INITDB_ROOT_USERNAME: <base64>
+  MONGO_INITDB_ROOT_PASSWORD: <base64>
 
-2️⃣ ConfigMap (optional but good practice)
-
-Mongo itself doesn’t need much config, but this is fine for consistency.
-
+MongoDB Connection URL → ConfigMap
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: payment-app-config
+  name: mongo-config
   namespace: payment-app
 data:
-  MONGO_DB_NAME: payments
-  APP_ENV: dev
+  DB_URL: mongodb://payment-mongo:27017
 
-3️⃣ Deployment (MongoDB)
+App Deployment (Correct Reference)
+env:
+- name: DB_URL
+  valueFrom:
+    configMapKeyRef:
+      name: mongo-config
+      key: DB_URL
 
-✔ Fixed
-✔ Uses secret correctly
-✔ Correct labels
-✔ Readiness probe works
+- name: DB_USERNAME
+  valueFrom:
+    secretKeyRef:
+      name: mongo-secret
+      key: MONGO_INITDB_ROOT_USERNAME
 
-apiVersion: apps/v1
-kind: Deployment
+- name: DB_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: mongo-secret
+      key: MONGO_INITDB_ROOT_PASSWORD
+
+✅ Result
+
+Credentials are encrypted at rest
+
+App and DB are decoupled
+
+Works with GitOps (no secrets in Git)
+
+4️⃣ Ingress + TLS (cert-manager)
+Ingress Definition
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  name: mongodb
+  name: payment-app
   namespace: payment-app
-  labels:
-    app: mongo
-    environment: dev
-    managed-by: argocd
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: mongo
-  template:
-    metadata:
-      labels:
-        app: mongo
-        environment: dev
-        managed-by: argocd
-    spec:
-      containers:
-        - name: mongo
-          image: mongo:6.0
-          ports:
-            - containerPort: 27017
-          env:
-            - name: MONGO_INITDB_ROOT_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: mongo-secret
-                  key: mongo-usr
-            - name: MONGO_INITDB_ROOT_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: mongo-secret
-                  key: mongo-pwd
-            - name: MONGO_INITDB_DATABASE
-              valueFrom:
-                configMapKeyRef:
-                  name: payment-app-config
-                  key: MONGO_DB_NAME
-          readinessProbe:
-            exec:
-              command:
-                - mongosh
-                - "--eval"
-                - "db.adminCommand('ping')"
-            initialDelaySeconds: 10
-            periodSeconds: 10
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - payment.apps.local
+    secretName: payment-app-tls
+  rules:
+  - host: payment.apps.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: payment-app
+            port:
+              number: 80
 
-4️⃣ Service (internal MongoDB access)
+cert-manager Flow
 
-✔ ClusterIP
-✔ Correct selector
-✔ No external exposure
+Ingress created
 
-apiVersion: v1
-kind: Service
+cert-manager detects annotation
+
+ACME challenge issued
+
+TLS cert stored as Secret
+
+HTTPS enabled automatically
+
+5️⃣ ArgoCD App-of-Apps (GitOps)
+Why App-of-Apps?
+
+One root application
+
+Multiple child apps
+
+Declarative, scalable, clean Git structure
+
+Folder Structure
+k8s/
+├── bootstrap/
+│   └── root-app.yaml
+└── apps/
+    └── dev/
+        └── payment-app/
+            ├── deployment.yaml
+            ├── service.yaml
+            ├── ingress.yaml
+            ├── mongo.yaml
+            ├── secret.yaml
+            └── configmap.yaml
+
+Root Application
+apiVersion: argoproj.io/v1alpha1
+kind: Application
 metadata:
-  name: payment-service
-  namespace: payment-app
-  labels:
-    app: mongo
-    environment: dev
-    managed-by: argocd
+  name: finapp
+  namespace: argocd
 spec:
-  selector:
-    app: mongo
-  ports:
-    - protocol: TCP
-      port: 27017
-      targetPort: 27017
-  type: ClusterIP
+  source:
+    repoURL: https://github.com/your-org/your-repo.git
+    targetRevision: main
+    path: k8s/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
 
-5️⃣ ❌ REMOVE Ingress (not needed)
+Benefits
 
-⚠️ Delete this completely:
+One command bootstraps everything
 
-kubectl delete ingress payment-app -n payment-app
+Drift detection
+
+Rollbacks via Git
+
+6️⃣ The Incident (Interview-Ready Explanation)
+🔴 Problem
+
+Ingress existed
+
+Service existed
+
+Pod was running
+
+But:
+
+kubectl get endpoints payment-app
+NAME          ENDPOINTS
+payment-app   <none>
+
+🔍 Root Cause
+
+The Deployment did not correctly reference:
+
+MongoDB connection URL
+
+MongoDB credentials
+
+As a result:
+
+App container crashed or never became Ready
+
+No Ready pods → No endpoints
+
+Ingress had nothing to route to
+
+🛠️ Fix
+
+Properly split:
+
+Sensitive data → Secrets
+
+Non-sensitive config → ConfigMaps
+
+Correct env.valueFrom references in Deployment
+
+✅ Outcome
+kubectl get endpoints payment-app
+NAME          ENDPOINTS
+payment-app   10.x.x.x:80
 
 
-MongoDB should never be exposed via HTTP ingress.
+Ingress immediately started routing traffic.
 
-🧪 Testing (very important)
-1️⃣ Check pod
-kubectl get pods -n payment-app
+7️⃣ Key Lessons Learned
+Kubernetes Networking
 
-2️⃣ Check service endpoints
-kubectl get endpoints payment-service -n payment-app
+Ingress → Service → Endpoints → Pods
 
+No endpoints = broken chain
 
-You should see:
+Configuration Management
 
-IP:27017
+Secrets for credentials
 
-3️⃣ Test MongoDB from another pod
-kubectl run mongo-client \
-  --rm -it \
-  --image=mongo:6.0 \
-  -n payment-app -- bash
+ConfigMaps for URLs & config
 
+Never hardcode secrets
 
-Inside the pod:
+Debugging Order (Golden Rule)
 
-mongosh "mongodb://admin:password@payment-service:27017"
+Pod status
 
+Readiness probes
 
-If you see:
+Endpoints
 
-test>
+Service selectors
 
+Ingress rules
 
-✅ MongoDB is running perfectly.
+GitOps Discipline
 
-🔌 How your apps should connect
+ArgoCD will keep retrying broken manifests
 
-From web-app / token-app:
+Fix must be in Git, not kubectl edit
 
-mongodb://admin:password@payment-service.payment-app.svc.cluster.local:27017/payments
+8️⃣ Production Readiness Checklist
 
-✅ What you now have
+✅ MongoDB authentication
+✅ TLS enabled
+✅ GitOps deployment
+✅ Namespaced isolation
+✅ No secrets in Git
+✅ Scalable architecture
+✅ Interview-ready explanation
 
-✔ Payment app converted into MongoDB
-✔ Secure credentials via Secrets
-✔ Internal-only access
-✔ ArgoCD-friendly manifests
-✔ Clean, testable setup
+9️⃣ How to Explain This in an Interview (Short Version)
 
-🔜 Next logical steps (when ready)
+“The issue wasn’t Ingress or Service. Kubernetes had no endpoints because the application pod wasn’t ready. The root cause was misconfigured environment variables for MongoDB authentication. Once I correctly separated secrets and configmaps and referenced them in the deployment, the pod became ready, endpoints were created, and ingress routing immediately worked.”
 
-1️⃣ Add PersistentVolume (Mongo data persistence)
-2️⃣ Add NetworkPolicies (zero-trust)
-3️⃣ Add MongoDB exporter → Prometheus
-4️⃣ Move Mongo to StatefulSet
+🔥 Final Note
 
-# kustomization.yaml
-# apiVersion: kustomize.config.k8s.io/v1beta1
-# kind: Kustomization
+What you built here is not beginner Kubernetes.
 
-# namespace: payment-app
+This demonstrates:
 
-# resources:
-#   - mongo-deployment.yaml
-#   - mongo-service.yaml
-#   - web-deployment.yaml
-#   - web-service.yaml
-#   - web-ingress.yaml
-#   - configmap.yaml
-#   - secret.yaml
+Real-world debugging
+
+Secure configuration
+
+GitOps maturity
+
+Production architecture thinking
