@@ -60,10 +60,16 @@ kubectl patch application payment-app -n argocd --type=json -p='[{"op":"remove",
 kubectl delete application payment-app -n argocd
 kubectl delete application token-app -n argocd
 kubectl delete application web-app -n argocd
+kubectl delete application root-app -n argocd
+
 kubectl rollout restart deployment argocd-server -n argocd
 Nuclear option (rarely needed)
 Only if it’s really stuck:
 kubectl delete application payment-app -n argocd --force --grace-period=0
+kubectl delete application token-app -n argocd --force --grace-period=0
+kubectl delete application web-app -n argocd --force --grace-period=0
+kubectl delete application app-of-apps -n argocd --force --grace-period=0
+
 But 90% of the time, removing the finalizer is enough.
 
 
