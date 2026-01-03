@@ -717,3 +717,56 @@ You should now have:
 ✅ No ArgoCD sync errors
 
 ✅ Payment app connecting successfully
+
+# mongo deployment used earlier but its not best practice. databases survive on statefulSets and not deployments
+# apiVersion: apps/v1   
+# kind: Deployment          # If MongoDB is a Deployment
+# metadata:
+#   name: payment-mongo
+#   namespace: payment-app
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: payment-mongo
+#   template:
+#     metadata:
+#       labels:
+#         app: payment-mongo
+#     spec:
+#       containers:
+#       - name: mongo
+#         image: mongo:5.0
+#         ports:
+#         - containerPort: 27017
+#         env:
+#         - name: MONGO_INITDB_ROOT_USERNAME
+#           valueFrom:
+#             secretKeyRef:
+#               name: mongo-secret
+#               key: mongo-user
+#         - name: MONGO_INITDB_ROOT_PASSWORD
+#           valueFrom:
+#             secretKeyRef:
+#               name: mongo-secret
+#               key: mongo-password
+#         volumeMounts:
+#           - name: mongo-data
+#             mountPath: /data/db
+#       volumes:
+#         - name: mongo-data
+#           persistentVolumeClaim:
+#             claimName: mongo-pvc
+
+# # Persistent Volume Claim for MongoDB  mongo-pvc.yaml
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: mongo-pvc
+#   namespace: payment-app
+# spec:
+#   accessModes:
+#     - ReadWriteOnce
+#   resources:
+#     requests:
+#       storage: 5Gi
