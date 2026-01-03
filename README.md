@@ -58,6 +58,8 @@ Remove the finalizer (this is the key step)
 Run:
 kubectl patch application payment-app -n argocd --type=json -p='[{"op":"remove","path":"/metadata/finalizers"}]'
 kubectl delete application payment-app -n argocd
+kubectl delete application token-app -n argocd
+kubectl delete application web-app -n argocd
 kubectl rollout restart deployment argocd-server -n argocd
 Nuclear option (rarely needed)
 Only if it’s really stuck:
