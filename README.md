@@ -53,6 +53,17 @@ repo-root/
 | Payment (MongoDB) | ClusterIP only |
 | Debugging         | Port-forward   |
 
+# to delete applications that are stuck
+Remove the finalizer (this is the key step)
+Run:
+kubectl patch application payment-app -n argocd --type=json -p='[{"op":"remove","path":"/metadata/finalizers"}]'
+kubectl delete application payment-app -n argocd
+kubectl rollout restart deployment argocd-server -n argocd
+Nuclear option (rarely needed)
+Only if it’s really stuck:
+kubectl delete application payment-app -n argocd --force --grace-period=0
+But 90% of the time, removing the finalizer is enough.
+
 
 # Minikube is not able to pull images from dockerhub thus you have to preload your images
 Web App
