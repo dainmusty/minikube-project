@@ -9,7 +9,7 @@ spec:
   source:
     repoURL: https://github.com/dainmusty/minikube-project.git
     targetRevision: main
-    path: apps/dev/        # ✅ ONLY Applications live here
+    path: bootstrap/        # ✅ ONLY Applications live here
     directory:
       recurse: true   # 👈 This allows argo to look into subdirectories
 
