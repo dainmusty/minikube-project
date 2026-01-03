@@ -57,6 +57,7 @@ repo-root/
 Remove the finalizer (this is the key step)
 Run:
 kubectl patch application payment-app -n argocd --type=json -p='[{"op":"remove","path":"/metadata/finalizers"}]'
+kubectl get applications -n argocd
 kubectl delete application payment-app -n argocd
 kubectl delete application token-app -n argocd
 kubectl delete application web-app -n argocd
