@@ -1,0 +1,126 @@
+{
+  "uid": "argocd-final",
+  "title": "ArgoCD – GitOps Applications Overview",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "tags": ["argocd", "gitops", "kubernetes"],
+  "templating": {
+    "list": [
+      {
+        "name": "application",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(argocd_app_info, name)",
+        "includeAll": true,
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      },
+      {
+        "name": "health",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(argocd_app_info, health_status)",
+        "includeAll": true,
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      },
+      {
+        "name": "sync",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(argocd_app_info, sync_status)",
+        "includeAll": true,
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Total Applications",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "count(argocd_app_info)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Healthy Applications",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "count(argocd_app_info{health_status=\"Healthy\"})",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Synced Applications",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "count(argocd_app_info{sync_status=\"Synced\"})",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "OutOfSync / Degraded",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "count(argocd_app_info{sync_status!=\"Synced\"}) + count(argocd_app_info{health_status!=\"Healthy\"})",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Applications Status",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 8 },
+      "targets": [
+        {
+          "expr": "argocd_app_info{name=~\"$application\", health_status=~\"$health\", sync_status=~\"$sync\"}",
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {}
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Successful Syncs per App",
+      "gridPos": { "x": 0, "y": 14, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "increase(argocd_app_sync_total{phase=\"Succeeded\", name=~\"$application\"}[5m])",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Failed Syncs per App",
+      "gridPos": { "x": 12, "y": 14, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "increase(argocd_app_sync_total{phase=\"Failed\", name=~\"$application\"}[5m])",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

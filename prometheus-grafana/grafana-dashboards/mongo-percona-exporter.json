@@ -1,0 +1,63 @@
+{
+  "id": null,
+  "title": "MongoDB – Prometheus (Verified Metrics)",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "tags": ["mongodb", "prometheus", "verified"],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "MongoDB Up",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "max(mongodb_up)",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "MongoDB Operations / sec",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "sum by (legacy_op_type) (rate(mongodb_ss_opcounters[5m]))",
+          "legendFormat": "{{legacy_op_type}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Queries per Second",
+      "gridPos": { "x": 0, "y": 10, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "rate(mongodb_ss_opcounters{legacy_op_type=\"query\"}[5m])",
+          "legendFormat": "queries",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Writes per Second",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "rate(mongodb_ss_opcounters{legacy_op_type=~\"insert|update|delete\"}[5m])",
+          "legendFormat": "{{legacy_op_type}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

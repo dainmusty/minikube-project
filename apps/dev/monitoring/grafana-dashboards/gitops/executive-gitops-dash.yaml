@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-executive-gitops
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  executive.json: |
+    {
+      "uid": "exec-gitops",
+      "title": "Executive – GitOps Health",
+      "schemaVersion": 38,
+      "version": 1,
+      "refresh": "1m",
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Total Apps",
+          "targets": [
+            { "expr": "count(argocd_app_info)", "refId": "A" }
+          ],
+          "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 }
+        },
+        {
+          "type": "stat",
+          "title": "Degraded Apps",
+          "targets": [
+            {
+              "expr": "count(argocd_app_health_status{health_status=\"Degraded\"})",
+              "refId": "A"
+            }
+          ],
+          "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 }
+        }
+      ]
+    }

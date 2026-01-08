@@ -1,0 +1,12 @@
+mongodb:
+  uri: "mongodb://mongouser:mongopassword@payment-mongo.payment-app.svc.cluster.local:27017/admin"
+
+extraArgs:
+  - --collect-all
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  scrapeTimeout: 10s
+  labels:
+    release: monitoring

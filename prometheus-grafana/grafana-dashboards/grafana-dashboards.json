@@ -1,0 +1,210 @@
+{
+  "uid": "k8s-website-full",
+  "title": "Kubernetes Website Performance (Full)",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "tags": ["kubernetes", "prometheus", "observability"],
+  "templating": {
+    "list": [
+      {
+        "name": "node",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "PROMETHEUS_DS_UID"
+        },
+        "query": "label_values(node_cpu_seconds_total, instance)",
+        "refresh": 1,
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "CPU & Memory Usage",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS_DS_UID" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 - avg(rate(node_cpu_seconds_total{mode=\"idle\",instance=~\"$node\"}[5m])) * 100",
+          "legendFormat": "CPU Usage (%)"
+        },
+        {
+          "refId": "B",
+          "expr": "(1 - (node_memory_MemAvailable_bytes{instance=~\"$node\"} / node_memory_MemTotal_bytes{instance=~\"$node\"})) * 100",
+          "legendFormat": "Memory Usage (%)"
+        }
+      ],
+      "alert": {
+        "name": "High CPU or Memory",
+        "conditions": [
+          {
+            "type": "query",
+            "query": { "params": ["A", "5m", "now"] },
+            "reducer": { "type": "avg" },
+            "evaluator": { "type": "gt", "params": [85] }
+          }
+        ],
+        "frequency": "1m",
+        "handler": 1,
+        "noDataState": "no_data",
+        "executionErrorState": "alerting"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "green" },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Memory Usage (%)" },
+            "properties": [{ "id": "custom.axisPlacement", "value": "right" }]
+          }
+        ]
+      }
+    },
+
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Server Requests (Stacked)",
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS_DS_UID" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_requests_total[5m])) by (pod)",
+          "legendFormat": "{{pod}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "stacking": { "mode": "normal" } }
+        }
+      }
+    },
+
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Latency Percentiles",
+      "gridPos": { "x": 0, "y": 15, "w": 24, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS_DS_UID" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.90, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p90"
+        }
+      ],
+      "alert": {
+        "name": "High Latency p95",
+        "conditions": [
+          {
+            "type": "query",
+            "query": { "params": ["A", "5m", "now"] },
+            "reducer": { "type": "avg" },
+            "evaluator": { "type": "gt", "params": [2] }
+          }
+        ],
+        "frequency": "1m",
+        "handler": 1
+      },
+      "fieldConfig": {
+        "defaults": { "unit": "s" }
+      }
+    },
+
+    {
+      "id": 4,
+      "type": "gauge",
+      "title": "Google Hits (req/s)",
+      "gridPos": { "x": 0, "y": 22, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS_DS_UID" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(google_hits_total[5m]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "thresholds": {
+            "steps": [
+              { "color": "green" },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 100 }
+            ]
+          }
+        }
+      }
+    },
+
+    {
+      "id": 5,
+      "type": "gauge",
+      "title": "Sign-ups (req/s)",
+      "gridPos": { "x": 6, "y": 22, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS_DS_UID" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(signups_total[5m]))"
+        }
+      ]
+    },
+
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Google Hits (Last 5m)",
+      "gridPos": { "x": 12, "y": 22, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS_DS_UID" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(google_hits_total[5m]))"
+        }
+      ]
+    },
+
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Sign-ups (Last 5m)",
+      "gridPos": { "x": 18, "y": 22, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "PROMETHEUS_DS_UID" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(signups_total[5m]))"
+        }
+      ]
+    }
+  ],
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  }
+}

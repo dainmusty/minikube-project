@@ -70,9 +70,12 @@ kubectl delete application payment-app -n argocd --force --grace-period=0
 kubectl delete application token-app -n argocd --force --grace-period=0
 kubectl delete application web-app -n argocd --force --grace-period=0
 kubectl delete application app-of-apps -n argocd --force --grace-period=0
-
-But 90% of the time, removing the finalizer is enough.
-
+Final checklist (memorize this)
+✔ Root app lives outside bootstrap
+✔ Bootstrap contains only child Applications
+✔ Root app is created once
+✔ Root app never manages itself
+✔ Application names never change
 
 # Minikube is not able to pull images from dockerhub thus you have to preload your images
 Web App
@@ -624,6 +627,34 @@ ArgoCD will apply them automatically.
 ✔ Cloud-grade zero-trust
 
 This is exactly what security teams demand in production EKS clusters.
+
+# Installation of Prometheus and Grafana
+
+# Grafana UI
+kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80
+http://localhost:3000
+
+# Password
+kubectl get secret -n monitoring monitoring-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
+
+# Add prometheus as a datasource
+url required - http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090
+
+
+# Prometheus
+kubectl port-forward -n monitoring svc/monitoring-kube-prometheus-prometheus 9090:9090
+http://localhost:9090
+
+How to Verify the Service Name (Optional)
+kubectl get svc -n monitoring
+
+
+
+3. Verify Alertmanager (for TestAlert)
+kubectl port-forward -n monitoring svc/monitoring-kube-prometheus-alertmanager 9093:9093
+# Access locally via http://localhost:9093
+
+
 
 # Persistence (PVC)
 

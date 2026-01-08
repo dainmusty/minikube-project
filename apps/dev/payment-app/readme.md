@@ -770,3 +770,21 @@ You should now have:
 #   resources:
 #     requests:
 #       storage: 5Gi
+
+
+ArgoCD App of Apps (Monitoring Stack)
+
+Now we GitOps-ify everything.
+
+📁 Final GitOps Layout
+k8s/
+├── bootstrap/
+│   └── root-app.yaml
+├── apps/
+│   ├── monitoring/
+│   │   ├── prometheus/
+│   │   ├── grafana/
+│   │   └── alerts/
+│   └── workloads/
+│       ├── payment-app/
+│       └── mongodb/
