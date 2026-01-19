@@ -5,4 +5,5 @@ metadata:
   namespace: monitoring
 type: Opaque
 stringData:
-  slack-webhook-url: https://hooks.slack.com/services/T000/B000/XXXX
+  slack-webhook-url: PLACEHOLDER_SET_MANUALLY
+
