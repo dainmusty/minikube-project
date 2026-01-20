@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: slack-test
+  namespace: monitoring
+spec:
+  groups:
+  - name: test.rules
+    rules:
+    - alert: SlackTest
+      expr: vector(1)
+      for: 10s
+      labels:
+        severity: warning
+      annotations:
+        summary: "Slack integration test"
+        description: "This alert verifies Alertmanager Slack routing"
