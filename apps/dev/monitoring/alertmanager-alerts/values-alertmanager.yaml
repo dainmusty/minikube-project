@@ -1,4 +1,8 @@
 alertmanager:
   alertmanagerSpec:
-    alertmanagerConfigSelector: {}
-    alertmanagerConfigNamespaceSelector: {}
+    alertmanagerConfigSelector:
+      matchLabels:
+        alertmanager: main
+    alertmanagerConfigNamespaceSelector:
+      matchNames:
+        - monitoring
