@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: Secret
-metadata:
-  name: alertmanager-slack
-  namespace: monitoring
-type: Opaque
-stringData:
-  slack-webhook-url: PLACEHOLDER_SET_MANUALLY
-

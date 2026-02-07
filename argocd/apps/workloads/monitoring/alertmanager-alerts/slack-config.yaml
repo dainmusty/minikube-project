@@ -1,0 +1,50 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: slack-alerts
+  namespace: monitoring
+  labels:
+    alertmanager: main   
+spec:
+  route:
+    receiver: slack-warning
+    groupBy: ["alertname", "namespace"]
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 4h
+    routes:
+      - matchers:
+          - name: severity
+            value: critical
+        receiver: slack-critical
+        repeatInterval: 1h
+
+  receivers:
+    - name: slack-warning
+      slackConfigs:
+        - apiURL:
+            name: alertmanager-slack
+            key: slack-webhook-url
+          channel: "#alerts-warning"
+          sendResolved: true
+          title: ":warning: {{ .CommonAnnotations.summary }}"
+          text: |
+            *Alert:* {{ .CommonLabels.alertname }}
+            *Namespace:* {{ .CommonLabels.namespace }}
+            *Severity:* {{ .CommonLabels.severity }}
+            *Description:* {{ .CommonAnnotations.description }}
+
+    - name: slack-critical
+      slackConfigs:
+        - apiURL:
+            name: alertmanager-slack
+            key: slack-webhook-url
+          channel: "#alerts-critical"
+          sendResolved: true
+          title: ":rotating_light: {{ .CommonAnnotations.summary }}"
+          text: |
+            *🔥 CRITICAL ALERT 🔥*
+            *Alert:* {{ .CommonLabels.alertname }}
+            *Namespace:* {{ .CommonLabels.namespace }}
+            *Severity:* {{ .CommonLabels.severity }}
+            *Description:* {{ .CommonAnnotations.description }}

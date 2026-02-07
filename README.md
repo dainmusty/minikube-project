@@ -14,8 +14,11 @@ b. Go to kubernetes on docker desktop and select kind cluster type
 kubectl create namespace argocd
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 kubectl get pods -n argocd
+
+# Access Argocd GUI
 kubectl port-forward svc/argocd-server -n argocd 8080:80
 
+# Argocd password
 kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" | base64 --decode
 
 3. Install nginx alb controller
@@ -95,22 +98,34 @@ Payment App (web and database)
 4. minikube image load nanajanashia/k8s-demo-app:v1.0
 
 # Test the applications via GUI
+# Application Access Options
 
-1. Option 1 - Port Forwarding
-Port forward using its container port number (8081)
+# Option 1 — Port-forwarding (quick, not scalable)
 kubectl port-forward svc/web-app -n web-app 8081:80
 
-2. Option 2 - Single Ingress, multiple paths (recommended)
-Step 1: Normalize container ports (Deployment)
-Each child app Deployment should expose 8080 only.
+Pros
+Fast to test
+No extra resources
 
-Example: web-app Deployment
+Cons
+Manual per app
+Port collisions
+Not production-like
+👉 Used only for short-lived debugging.
+
+# Option 2. — Ingress-based routing (recommended)
+
+This option mirrors how applications are exposed in production.
+
+# Step 1 — Normalize container ports
+
+All applications listen on the same container port (8080).
+
 containers:
   - name: web-app
     image: dainmusty/effulgencetech-nodejs-img:tag
     ports:
       - containerPort: 8080
-
 
 Repeat for:
 
@@ -120,40 +135,19 @@ token-app
 
 payment-app
 
-✅ No 3000, no 5000, no custom ports per app
+# Step 2 — Normalize Services
 
-Step 2: Normalize Services
+Each Service exposes port 80, forwarding to 8080 inside the Pod.
 
-Each Service exposes port 80, forwards to 8080.
+ports:
+  - port: 80
+    targetPort: 8080
 
-Example: web-app Service
-apiVersion: v1
-kind: Service
-metadata:
-  name: web-app
-  namespace: web-app
-spec:
-  type: ClusterIP
-  selector:
-    app: web-app
-  ports:
-    - port: 80
-      targetPort: 8080
+This ensures:
 
+Ingress always talks to port 80
 
-Repeat for:
-
-token-app
-
-payment-app
-
-👉 Internally, Kubernetes always talks to port 80, containers always listen on 8080
-
-Step 3: Add Ingress (Minikube nginx)
-
-Enable nginx if you haven’t:
-
-minikube addons enable ingress
+Containers remain consistent
 
 What “normalize all apps” means (in your setup)
 
@@ -164,44 +158,21 @@ Specifically:
 Every app listens on the same container port (e.g. 8080)
 Kubernetes Services & Ingress don’t need to care about app-specific ports anymore.
 
-Why this matters
+# Why the normalisation matters
+Clean Ingress rules
+Reusable Helm charts
+Predictable ArgoCD health checks
+Fewer configuration bugs
 
-Ingress rules become clean and consistent
+# Local DNS Setup (Windows)
+1. Open Notepad as administrator and edit your hosts file
 
-Helm / manifests are reusable
+Host file location - C:\Windows\System32\drivers\etc
 
-ArgoCD health checks behave predictably
+Change file type from Text Documents (*.txt) → All Files to see host file
 
-You avoid port-mismatch bugs like the one you just debugged
-
-1. Open Notepad as Administrator
-
-This part is mandatory.
-
-Click Start
-
-Type Notepad
-
-Right-click → Run as administrator
-
-2️⃣ Open the hosts file
-
-In Notepad:
-
-File → Open
-
-Go to:
-
-C:\Windows\System32\drivers\etc
-
-
-Change file type from Text Documents (*.txt) → All Files
-
-Open hosts
-
-3️⃣ Add this line at the VERY BOTTOM
-127.0.0.1   apps.local
-
+2. Open the host file and add the line below the very bottom
+  127.0.0.1   apps.local 
 
 ⚠️ Make sure:
 
@@ -211,11 +182,9 @@ No # in front
 
 No .txt extension
 
-4️⃣ Save (Ctrl + S)
+3. Save (Ctrl + S)
 
-If it doesn’t ask for permission, you didn’t open Notepad as admin → repeat step 1.
-
-5️⃣ Flush DNS cache (important)
+4. Flush DNS cache (important)
 
 Open Command Prompt as Administrator and run:
 
