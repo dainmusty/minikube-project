@@ -18,4 +18,4 @@ spec:
           image: dainmusty/fonapp-nodejs:latest
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8080
+            - containerPort: 3000
