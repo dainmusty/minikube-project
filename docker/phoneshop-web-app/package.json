@@ -1,0 +1,15 @@
+{
+    "name": "musty-fonshopapp",
+    "version": "1.0.0",
+    "description": "Musty Fonshop App",
+    "author": "mustydain", 
+    "license": "MIT",
+    "main": "app.js",
+    "keywords": [
+    "nodejs", 
+    "bootstrap", 
+    "express"
+    ], 
+    "dependencies": {
+    "express": "^4.16.4" }
+}
