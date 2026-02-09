@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: web-app
-          image: dainmusty/phone-store:latest
+          image: dainmusty/fonapp-nodejs:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
