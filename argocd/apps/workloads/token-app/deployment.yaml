@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
         - name: token-app
-          image: dainmusty/effulgencetech-nodejs-img:latest
+          image: kids-website:latest      # dainmusty/effulgencetech-nodejs-img:latest
           ports:
             - containerPort: 8080
