@@ -4,12 +4,14 @@ FROM nginx:alpine
 # Remove default nginx website
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copy website files to nginx public folder
+# Copy website files
 COPY index.html /usr/share/nginx/html/index.html
 COPY playground.jpg /usr/share/nginx/html/playground.jpg
 
-# Expose port 80
-EXPOSE 80
+# Change Nginx config to listen on 8080
+RUN sed -i 's/listen       80;/listen       8080;/' /etc/nginx/conf.d/default.conf
 
-# Start nginx
+# Expose the correct port
+EXPOSE 8080
+
 CMD ["nginx", "-g", "daemon off;"]
