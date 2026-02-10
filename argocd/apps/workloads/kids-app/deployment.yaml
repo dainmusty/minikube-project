@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: token-app
+  name: kids-app
   namespace: token-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: token-app
+      app: kids-app
   template:
     metadata:
       labels:
-        app: token-app
+        app: kids-app
     spec:
       containers:
-        - name: token-app
-          image: dainmusty/effulgencetech-nodejs-img:latest
+        - name: kids-app
+          image: dainmusty/kids-website:latest       
           ports:
             - containerPort: 8080

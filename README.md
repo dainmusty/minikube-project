@@ -87,7 +87,7 @@ Web App
 2. minikube image load dainmusty/phone-store:latest
 
 Token App
-1. docker pull dainmusty/effulgencetech-nodejs-img:tag          # listens on port 8080
+1. docker pull dainmusty/effulgencetech-nodejs-img:latest          # listens on port 8080
 2. minikube image load dainmusty/effulgencetech-nodejs-img:tag
 
 Payment App (web and database)
@@ -96,6 +96,9 @@ Payment App (web and database)
 
 3. docker pull nanajanashia/k8s-demo-app:v1.0
 4. minikube image load nanajanashia/k8s-demo-app:v1.0
+
+# Kids webApp
+1. docker pull dainmusty/kids-website:latest
 
 # Test the applications via GUI
 # Application Access Options
