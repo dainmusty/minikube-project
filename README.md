@@ -63,17 +63,12 @@ Run:
 kubectl patch application payment-app -n argocd --type=json -p='[{"op":"remove","path":"/metadata/finalizers"}]'
 kubectl get applications -n argocd
 kubectl delete application payment-app -n argocd
-kubectl delete application token-app -n argocd
-kubectl delete application web-app -n argocd
-kubectl delete application root-app -n argocd
 
 kubectl rollout restart deployment argocd-server -n argocd
 Nuclear option (rarely needed)
 Only if it’s really stuck:
 kubectl delete application payment-app -n argocd --force --grace-period=0
-kubectl delete application token-app -n argocd --force --grace-period=0
-kubectl delete application web-app -n argocd --force --grace-period=0
-kubectl delete application app-of-apps -n argocd --force --grace-period=0
+
 Final checklist (memorize this)
 ✔ Root app lives outside bootstrap
 ✔ Bootstrap contains only child Applications
@@ -552,15 +547,6 @@ app: label
 
 target port (80 vs 8080)
 
-Example port mapping
-App	NetworkPolicy port
-web-app	80
-token-app	8080
-payment-app	8080
-6️⃣ Verify zero-trust is working
-🔍 Test 1 — ingress still works
-https://token.apps.local
-
 🔍 Test 2 — block lateral traffic
 kubectl exec -it -n web-app <pod> -- wget -O- http://token-app.token-app.svc.cluster.local
 
@@ -603,12 +589,22 @@ ArgoCD will apply them automatically.
 This is exactly what security teams demand in production EKS clusters.
 
 # Installation of Prometheus and Grafana
+# Use helm, its recommended 
+1. helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+2. helm repo update
+# Create a namespace monitoring
+3. kubectl create namespace monitoring
+4. helm install monitoring prometheus-community/kube-prometheus-stack --namespace monitoring
+# Check status
+5. kubectl get pod -n monitoring
 
 # Grafana UI
 kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80
 http://localhost:3000
 
 # Password
+kubectl get secret --namespace monitoring -l app.kubernetes.io/component=admin-secret -o jsonpath="{.items[0].data.admin-password}" | base64 --decode ; echo
+
 kubectl get secret -n monitoring monitoring-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
 
 # Add prometheus as a datasource
