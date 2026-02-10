@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kids-app
-  namespace: token-app
+  namespace: kids-app
 spec:
   replicas: 1
   selector:

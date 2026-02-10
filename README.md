@@ -99,7 +99,8 @@ Payment App (web and database)
 
 # Kids webApp
 1. docker pull dainmusty/kids-website:latest
-
+2. docker pull seidut/zay:1.1
+3. docker pull seidut/ayd:1.0
 # Test the applications via GUI
 # Application Access Options
 
