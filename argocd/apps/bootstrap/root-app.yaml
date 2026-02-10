@@ -1,3 +1,5 @@
+# Moved to bootstrap repo (https://github.com/dainmusty/argocd-bootstrap-repo.git) hence the commenting out 
+# All child apps moved to bootstrap repo.
 # apiVersion: argoproj.io/v1alpha1
 # kind: Application
 # metadata:
