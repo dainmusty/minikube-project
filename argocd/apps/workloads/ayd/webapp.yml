@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: webapp
-        image: seidut/ayd:1.1
+        image: seidut/ayd:1.0
         ports:
         - containerPort: 80
         
