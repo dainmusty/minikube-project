@@ -602,7 +602,7 @@ This is exactly what security teams demand in production EKS clusters.
 kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80
 http://localhost:3000
 
-# Password
+# Grafana Password
 kubectl get secret --namespace monitoring -l app.kubernetes.io/component=admin-secret -o jsonpath="{.items[0].data.admin-password}" | base64 --decode ; echo
 
 kubectl get secret -n monitoring monitoring-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
