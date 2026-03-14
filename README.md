@@ -1,631 +1,286 @@
-# Kubernetes-Argocd Project (App of Apps)
-Project Overview
-GitOps-Driven Microservices Deployment on Kubernetes (EKS / Minikube)
-A production-style Kubernetes microservices project using GitOps with Argo CD.
-Demonstrates secure service-to-service communication, ingress management, and MongoDB integration.
-Focused on real-world debugging, Kustomize overlays, and operational best practices.
-
-Steps
-1. Deploy minikube or Docker Desktop Cluster
-a. Run choco install minikube or 
-b. Go to kubernetes on docker desktop and select kind cluster type
-
-2.  Install argocd 
-kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-kubectl get pods -n argocd
-
-# Access Argocd GUI
-kubectl port-forward svc/argocd-server -n argocd 8080:80
-
-# Argocd password
-kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" | base64 --decode
-
-3. Install nginx alb controller
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
-
-4. Prepare your manifest files using the structure below
-repo-root/
-├── k8s/
-│   ├── bootstrap/
-│   │   └── root-app-dev.yaml      # App of Apps 
-│   └── apps/
-│       └── dev/
-│           ├── web-app/
-│           │   ├── deployment.yaml
-│           │   ├── service.yaml
-│           │   ├── ingress.yaml
-│           │   
-│           ├── token-app/
-│           │   ├── deployment.yaml
-│           │   ├── service.yaml
-│           │   ├── ingress.yaml
-│           │   
-│           └── payment-app/
-│               ├── mongo-deployment.yaml
-│               ├── mongo-service.yaml
-│               ├── web-deployment.yaml
-│               ├── web-service.yaml
-│               ├── configmap.yaml
-│               ├── secret.yaml
-│               └── web-ingress.yaml
-
-| Component         | Exposure       |
-| ----------------- | -------------- |
-| Web App           | Ingress        |
-| Token App         | Ingress        |
-| Payment (MongoDB) | ClusterIP only |
-| Debugging         | Port-forward   |
-
-# to delete applications that are stuck
-Remove the finalizer (this is the key step)
-Run:
-kubectl patch application payment-app -n argocd --type=json -p='[{"op":"remove","path":"/metadata/finalizers"}]'
-kubectl get applications -n argocd
-kubectl delete application payment-app -n argocd
-
-kubectl rollout restart deployment argocd-server -n argocd
-Nuclear option (rarely needed)
-Only if it’s really stuck:
-kubectl delete application payment-app -n argocd --force --grace-period=0
-
-Final checklist (memorize this)
-✔ Root app lives outside bootstrap
-✔ Bootstrap contains only child Applications
-✔ Root app is created once
-✔ Root app never manages itself
-✔ Application names never change
-
-# Minikube is not able to pull images from dockerhub thus you have to preload your images
-Web App
-1. docker pull dainmusty/phone-store:latest     # listens on port 80
-2. minikube image load dainmusty/phone-store:latest
+# Prometheus Grafana Observability Stack
 
-Token App
-1. docker pull dainmusty/effulgencetech-nodejs-img:latest          # listens on port 8080
-2. minikube image load dainmusty/effulgencetech-nodejs-img:tag
+This project demonstrates how to build a **Kubernetes observability platform** using Prometheus, Grafana, and Alertmanager.
 
-Payment App (web and database)
-1. docker pull mongo:5.0          
-2. minikube image load mongo:5.0
+The stack provides full visibility into Kubernetes workloads including:
 
-3. docker pull nanajanashia/k8s-demo-app:v1.0
-4. minikube image load nanajanashia/k8s-demo-app:v1.0
+• ArgoCD GitOps controllers  
+• MongoDB database metrics  
+• Kubernetes infrastructure health  
+• Application performance metrics  
 
-# Kids webApp
-1. docker pull dainmusty/kids-website:latest
-2. docker pull seidut/zay:1.1
-3. docker pull seidut/ayd:1.0
-# Test the applications via GUI
-# Application Access Options
+The goal of this project is to simulate how platform and SRE teams implement **production-grade monitoring and alerting** for cloud-native systems.
 
-# Option 1 — Port-forwarding (quick, not scalable)
-kubectl port-forward svc/web-app -n web-app 8081:80
+---
 
-Pros
-Fast to test
-No extra resources
+# Architecture Overview
 
-Cons
-Manual per app
-Port collisions
-Not production-like
-👉 Used only for short-lived debugging.
+The observability stack is deployed using the **kube-prometheus-stack Helm chart**, which bundles several core monitoring components.
 
-# Option 2. — Ingress-based routing (recommended)
+Key components include:
 
-This option mirrors how applications are exposed in production.
+Prometheus – metrics collection and time-series database  
+Grafana – visualization dashboards  
+Alertmanager – alert routing and notifications  
+Node Exporter – host-level metrics  
+Kube State Metrics – Kubernetes object metrics  
 
-# Step 1 — Normalize container ports
+These components work together to provide **real-time operational visibility** into the cluster.
 
-All applications listen on the same container port (8080).
+---
 
-containers:
-  - name: web-app
-    image: dainmusty/effulgencetech-nodejs-img:tag
-    ports:
-      - containerPort: 8080
+# Environment
 
-Repeat for:
+The observability platform was developed and tested on a **local Kubernetes cluster** using Docker Desktop / Minikube.
 
-web-app
+This approach allows dashboards, alerts, and monitoring configurations to be designed and tested locally before deploying to a cloud environment such as **Amazon EKS**.
 
-token-app
+---
 
-payment-app
+# Observability Features
 
-# Step 2 — Normalize Services
+The platform includes monitoring and dashboards for several key services.
 
-Each Service exposes port 80, forwarding to 8080 inside the Pod.
+## Kubernetes Infrastructure Monitoring
 
-ports:
-  - port: 80
-    targetPort: 8080
+Prometheus collects cluster-level metrics including:
 
-This ensures:
+• node CPU and memory usage  
+• pod resource utilization  
+• cluster health and capacity  
 
-Ingress always talks to port 80
+Grafana dashboards provide real-time visualization of these metrics.
 
-Containers remain consistent
+---
 
-What “normalize all apps” means (in your setup)
+## ArgoCD Monitoring
 
-Normalization = making all your applications look the same from Kubernetes’ point of view.
+ArgoCD metrics are scraped by Prometheus using **ServiceMonitor resources**.
 
-Specifically:
+This enables dashboards that track:
 
-Every app listens on the same container port (e.g. 8080)
-Kubernetes Services & Ingress don’t need to care about app-specific ports anymore.
+• application sync status  
+• reconciliation loops  
+• deployment health  
+• controller performance
 
-# Why the normalisation matters
-Clean Ingress rules
-Reusable Helm charts
-Predictable ArgoCD health checks
-Fewer configuration bugs
+These insights help platform teams detect GitOps synchronization issues early.
 
-# Local DNS Setup (Windows)
-1. Open Notepad as administrator and edit your hosts file
+---
 
-Host file location - C:\Windows\System32\drivers\etc
+## MongoDB Monitoring
 
-Change file type from Text Documents (*.txt) → All Files to see host file
+MongoDB metrics are collected to track database health and performance.
 
-2. Open the host file and add the line below the very bottom
-  127.0.0.1   apps.local 
+Metrics monitored include:
 
-⚠️ Make sure:
+• database connections  
+• query performance  
+• memory usage  
+• replication metrics
 
-There is at least one space or tab
+These dashboards allow operators to quickly detect database performance issues.
 
-No # in front
+---
 
-No .txt extension
+# Alerting
 
-3. Save (Ctrl + S)
+Alerting is implemented using **Prometheus Alertmanager**.
 
-4. Flush DNS cache (important)
+Alerts can be configured for scenarios such as:
 
-Open Command Prompt as Administrator and run:
+• high CPU or memory usage  
+• pod crashes or restart loops  
+• application downtime  
+• resource exhaustion  
 
-ipconfig /flushdns
+This ensures that operational issues can be detected and addressed quickly.
 
+---
 
-You should see:
+# Deployment Steps
 
-Successfully flushed the DNS Resolver Cache.
+## 1. Create Monitoring Namespace
 
-✅ Verify (this MUST work)
-ping apps.local
+```
+kubectl create namespace monitoring
+```
 
+---
 
-Expected:
+## 2. Add Prometheus Helm Repository
 
-Pinging apps.local [127.0.0.1] with 32 bytes of data
-Windows ignores hosts changes unless:
+```
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+```
 
-File saved with admin rights
+---
 
-DNS cache flushed
+## 3. Install kube-prometheus-stack
 
-Git Bash / WSL does not edit Windows DNS
+```
+helm install monitoring prometheus-community/kube-prometheus-stack \
+--namespace monitoring
+```
 
-✅ After ping works
+This installs:
 
-Then your Minikube ingress URLs will work:
-http://web.apps.local
-http://token.apps.local
-http://payment.apps.local
-Next logical steps (your setup is ready)
+• Prometheus  
+• Grafana  
+• Alertmanager  
+• Node Exporter  
+• Kube State Metrics
 
-Once DNS works, we can:
+---
 
-Add path-based Ingress YAML
+# Accessing Grafana
 
-Add health checks in ArgoCD
+Forward the Grafana service:
 
-Prepare same layout for EKS + ALB
-
-Do not move forward until ping apps.local works
-
-Normalized standard (this is gold):
-This confirms:
-✔ Pods are running
-✔ App listens on 8080
-✔ Service correctly forwards 80 → 8080
-Browser
- → http://token.apps.local
- → Ingress (80)
- → Service token-app (80)
- → Pod token-app (8080)
- → Node app responds ✅
-Final “Normalize all apps” rule (the right way)
-
-Normalization means:
-
-All apps are accessed via port 80 externally,
-but internally they can listen on any port they want.
-
-External (Ingress)
-web.apps.local    → 80
-token.apps.local  → 80
-payment.apps.local→ 80
-
-Internal (Service → Pod)
-nginx    → 80
-node     → 8080
-python   → 5000
-
-Ingress never changes — Services adapt.
-| App         | Container Port | Service Target | Ingress |
-| ----------- | -------------- | -------------- | ------- |
-| web-app     | 80             | 80             | 80      |
-| token-app   | 8080           | 8080           | 80      |
-| payment-app | 3000           | 3000           | 80      |
-
-
-# To log into a pod and check app status and listening port
-kubectl exec -it -n token-app <pod> -- sh
-wget -O- http://localhost:8080
-
-
-# Add HTTPS (TLS) locally with Minikube + nginx ingress, the production-correct way, without hacks.
-
-You’ll end up with:
-
-https://web.apps.local
-https://token.apps.local
-https://payment.apps.local
-
-
-✔ Valid local TLS
-✔ Browser trusted cert
-✔ Same pattern as EKS / ALB
-✔ No port-forwards needed
-
-1️⃣ Install & setup mkcert (local CA)
-
-mkcert creates a trusted local Certificate Authority.
-
-Windows (PowerShell – Admin)
-choco install mkcert
-
-
-OR download from:
-https://github.com/FiloSottile/mkcert/releases
-
-Initialize local CA
-mkcert -install
-
-
-This adds a trusted root cert to your OS & browser.
-
-2️⃣ Generate certs for your apps
-
-From any directory (repo root is fine):
-
-mkcert \
-  web.apps.local \
-  token.apps.local \
-  payment.apps.local
-
-
-This creates two files:
-
-web.apps.local+2.pem
-web.apps.local+2-key.pem
-
-
-(rename is fine, content matters)
-
-3️⃣ Create a Kubernetes TLS Secret (once)
-
-We’ll create one shared TLS secret.
-
-kubectl create secret tls apps-local-tls \
-  --cert=web.apps.local+2.pem \
-  --key=web.apps.local+2-key.pem \
-  -n ingress-nginx
-
-
-✅ Stored where ingress controller runs
-✅ Reusable by all ingresses
-
-Verify:
-
-kubectl get secret -n ingress-nginx
-
-4️⃣ Update Ingress to use HTTPS
-Example: token-app ingress (final)
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: token-app
-  namespace: token-app
-spec:
-  ingressClassName: nginx
-
-  tls:
-    - hosts:
-        - token.apps.local
-      secretName: apps-local-tls
-
-  rules:
-    - host: token.apps.local
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: token-app
-                port:
-                  number: 80
-
-
-Do the same TLS block for:
-
-web-app
-
-payment-app
-
-Only the host + service name change.
-
-5️⃣ Restart ingress (important)
-kubectl rollout restart deployment ingress-nginx-controller -n ingress-nginx
-
-6️⃣ Test 🎉
-
-Open browser:
-
-https://token.apps.local
-https://web.apps.local
-
-
-✅ Green lock
-✅ No browser warnings
-✅ Real TLS
-
-🧠 Key production lessons you just implemented
-Local CA	mkcert
-TLS secrets	Kubernetes-native
-Ingress TLS	spec.tls
-No hacks	No port-forward
-Cloud parity	Matches ALB
-
-This exact pattern maps directly to:
-
-AWS ALB + ACM
-
-GKE Managed Certs
-
-AKS App Gateway
-
-Only the cert source changes.
-
-# NetworkPolicies are where Kubernetes becomes “real security” 🔐
-Default Kubernetes behavior (bad):
-
-Every pod can talk to every pod in every namespace
-
-Zero-trust model (good):
-
-Nothing talks to anything unless explicitly allowed
-
-Default deny per namespace
-
-Allow ingress traffic only from ingress-nginx
-
-Allow DNS (required!)
-
-(Optional) Allow app-to-app communication later
-
-1️⃣ Prerequisite check (important)
-
-NetworkPolicies only work if your CNI supports them.
-
-Minikube drivers that support NetworkPolicy:
-
-✅ docker
-
-✅ containerd
-
-❌ none (old VM drivers)
-
-Verify your CNI:
-
-kubectl get pods -n kube-system | grep -E "calico|cilium|weave"
-
-
-Minikube usually uses calico, so you’re good.
-
-2️⃣ Default-deny policy (per app namespace)
-
-This is the foundation of zero-trust.
-
-📄 networkpolicy-default-deny.yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: default-deny-all
-  namespace: token-app
-spec:
-  podSelector: {}
-  policyTypes:
-    - Ingress
-    - Egress
-
-What this does
-
-❌ Blocks ALL inbound traffic
-
-❌ Blocks ALL outbound traffic
-
-Applies to every pod in token-app
-
-⚠️ If you stop here → app breaks (expected)
-
-3️⃣ Allow ingress traffic from nginx ingress controller
-
-Your apps must accept traffic only from ingress-nginx.
-
-📄 networkpolicy-allow-ingress-nginx.yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-ingress-from-nginx
-  namespace: token-app
-spec:
-  podSelector:
-    matchLabels:
-      app: token-app
-
-  policyTypes:
-    - Ingress
-
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: ingress-nginx
-      ports:
-        - protocol: TCP
-          port: 8080
-
-Why this is secure
-
-✔ Only ingress controller can reach the app
-✔ No other namespace can talk to it
-✔ No pod-to-pod lateral movement
-
-4️⃣ Allow DNS (mandatory or everything breaks)
-
-Every pod needs DNS to function.
-
-📄 networkpolicy-allow-dns.yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-dns
-  namespace: token-app
-spec:
-  podSelector: {}
-  policyTypes:
-    - Egress
-  egress:
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-      ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53
-
-
-Without this:
-
-❌ Images won’t pull
-
-❌ Services won’t resolve
-
-❌ HTTP clients fail
-
-5️⃣ Apply same pattern to ALL apps
-
-Repeat these 3 policies for:
-
-web-app
-
-payment-app
-
-Only change:
-
-namespace
-
-app: label
-
-target port (80 vs 8080)
-
-🔍 Test 2 — block lateral traffic
-kubectl exec -it -n web-app <pod> -- wget -O- http://token-app.token-app.svc.cluster.local
-
-
-❌ Should FAIL
-✔ Zero-trust confirmed
-
-🔍 Test 3 — ArgoCD health
-
-ArgoCD should remain Healthy because:
-
-It reads Kubernetes state
-
-It does NOT need network access to pods
-
-7️⃣ Folder structure (recommended)
-
-Add this to each app:
-
-apps/dev/token-app/
-├── deployment.yaml
-├── service.yaml
-├── ingress.yaml
-└── networkpolicies/
-    ├── default-deny.yaml
-    ├── allow-ingress-nginx.yaml
-    └── allow-dns.yaml
-
-
-ArgoCD will apply them automatically.
-
-🔐 What security you just implemented (real-world)
-
-✔ Namespace isolation
-✔ Ingress-only exposure
-✔ No lateral movement
-✔ DNS-only egress
-✔ Cloud-grade zero-trust
-
-This is exactly what security teams demand in production EKS clusters.
-
-# Installation of Prometheus and Grafana
-# Use helm, its recommended 
-1. helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-2. helm repo update
-# Create a namespace monitoring
-3. kubectl create namespace monitoring
-4. helm install monitoring prometheus-community/kube-prometheus-stack --namespace monitoring
-# Check status
-5. kubectl get pod -n monitoring
-
-# Grafana UI
+```
 kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80
+```
+
+Open:
+
+```
 http://localhost:3000
+```
 
-# Grafana Password
-kubectl get secret --namespace monitoring -l app.kubernetes.io/component=admin-secret -o jsonpath="{.items[0].data.admin-password}" | base64 --decode ; echo
+Retrieve the Grafana admin password:
 
-kubectl get secret -n monitoring monitoring-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
+```
+kubectl get secret -n monitoring monitoring-grafana \
+-o jsonpath="{.data.admin-password}" | base64 --decode
+```
 
-# Add prometheus as a datasource
-url required - http://monitoring-kube-prometheus-prometheus.monitoring.svc:9090
+---
 
+# Accessing Prometheus
 
-# Prometheus
+```
 kubectl port-forward -n monitoring svc/monitoring-kube-prometheus-prometheus 9090:9090
+```
+
+Prometheus UI:
+
+```
 http://localhost:9090
+```
 
-How to Verify the Service Name (Optional)
-kubectl get svc -n monitoring
+---
 
+# Alertmanager
 
-
-3. Verify Alertmanager (for TestAlert)
+```
 kubectl port-forward -n monitoring svc/monitoring-kube-prometheus-alertmanager 9093:9093
-# Access locally via http://localhost:9093
+```
 
+Alertmanager UI:
 
+```
+http://localhost:9093
+```
 
-# Persistence (PVC)
+---
 
-Ensure data survives pod restart
+# ServiceMonitors
+
+Prometheus discovers application metrics through **ServiceMonitor resources**.
+
+ServiceMonitors define:
+
+• which services to monitor  
+• which endpoints expose metrics  
+• scrape intervals  
+
+This allows platform teams to extend monitoring coverage easily for new services.
+
+---
+
+# Grafana Dashboards
+
+Custom Grafana dashboards were created to monitor:
+
+• Kubernetes cluster health  
+• ArgoCD controllers and applications  
+• MongoDB performance metrics  
+• microservices workload health  
+
+These dashboards provide a centralized view of the system's operational status.
+
+---
+
+# Security and Networking
+
+The project also demonstrates several Kubernetes operational best practices:
+
+• ingress-based routing using NGINX  
+• namespace isolation for workloads  
+• Kubernetes NetworkPolicies implementing zero-trust networking  
+
+These controls prevent unauthorized communication between services.
+
+---
+
+# Persistence
+
+Prometheus and Grafana data persistence can be enabled using **Persistent Volume Claims (PVCs)** to ensure monitoring data survives pod restarts.
+
+This is critical for maintaining historical metrics and debugging long-term performance trends.
+
+---
+
+# Key Lessons Learned
+
+Building an observability platform highlighted several important principles used by SRE and platform teams.
+
+### Observability must be designed early
+
+Monitoring should be built into the platform rather than added after systems are deployed.
+
+### Metrics alone are not enough
+
+Dashboards and alerts are necessary to transform raw metrics into actionable operational insights.
+
+### Service discovery simplifies monitoring
+
+Using ServiceMonitors allows Prometheus to automatically detect new services as they are deployed.
+
+### Dashboards should focus on operational questions
+
+Effective dashboards answer questions such as:
+
+• Is the system healthy?  
+• Are applications responding normally?  
+• Are resources approaching limits?
+
+### Local testing accelerates platform development
+
+Developing dashboards and alerts locally using Docker Desktop or Minikube enables rapid iteration before deploying to cloud environments like EKS.
+
+---
+
+# Outcome
+
+This project demonstrates how organizations can implement a **production-style Kubernetes observability platform** that provides:
+
+• real-time infrastructure monitoring  
+• application performance visibility  
+• automated alerting for operational incidents  
+
+Together, these capabilities allow platform teams to maintain **reliable and observable cloud-native systems**.
+
+---
+
+# Technologies Used
+
+Kubernetes  
+Prometheus  
+Grafana  
+Alertmanager  
+Helm  
+ArgoCD  
+MongoDB  
+Docker Desktop Kubernetes
